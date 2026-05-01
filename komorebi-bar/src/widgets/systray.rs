@@ -723,7 +723,7 @@ impl Systray {
             .filter(|icon| icon.is_visible)
             .cloned()
             .collect();
-        icons.sort_by(|a, b| a.stable_id.to_string().cmp(&b.stable_id.to_string()));
+        icons.sort_by_key(|a| a.stable_id.to_string());
         icons
     }
 
@@ -731,7 +731,7 @@ impl Systray {
     fn get_all_icons() -> Vec<CachedIcon> {
         let state = SYSTRAY_STATE.lock();
         let mut icons: Vec<_> = state.icons.values().cloned().collect();
-        icons.sort_by(|a, b| a.stable_id.to_string().cmp(&b.stable_id.to_string()));
+        icons.sort_by_key(|a| a.stable_id.to_string());
         icons
     }
 

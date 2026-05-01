@@ -307,12 +307,10 @@ impl Monitor {
                         DefaultLayout::RightMainVerticalStack => {
                             workspace.add_container_to_front(container);
                         }
-                        DefaultLayout::UltrawideVerticalStack => {
-                            if workspace.containers().len() == 1 {
-                                workspace.insert_container_at_idx(0, container);
-                            } else {
-                                workspace.add_container_to_back(container);
-                            }
+                        DefaultLayout::UltrawideVerticalStack
+                            if workspace.containers().len() == 1 =>
+                        {
+                            workspace.insert_container_at_idx(0, container);
                         }
                         _ => {
                             workspace.add_container_to_back(container);
@@ -332,12 +330,10 @@ impl Monitor {
 
                         match layout {
                             DefaultLayout::RightMainVerticalStack
-                            | DefaultLayout::UltrawideVerticalStack => {
-                                if workspace.containers().len() == 1 {
-                                    workspace.add_container_to_back(container);
-                                } else {
-                                    workspace.insert_container_at_idx(target_index, container);
-                                }
+                            | DefaultLayout::UltrawideVerticalStack
+                                if workspace.containers().len() == 1 =>
+                            {
+                                workspace.add_container_to_back(container);
                             }
                             _ => {
                                 workspace.insert_container_at_idx(target_index, container);

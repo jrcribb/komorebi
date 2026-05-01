@@ -28,12 +28,10 @@ pub fn listen_for_movements(wm: Arc<Mutex<WindowManager>>) {
                         Action::Press => ignore_movement = true,
                         Action::Release => ignore_movement = false,
                     },
-                    Event::MouseMoveRelative { .. } => {
-                        if !ignore_movement {
-                            match wm.lock().raise_window_at_cursor_pos() {
-                                Ok(()) => {}
-                                Err(error) => tracing::error!("{}", error),
-                            }
+                    Event::MouseMoveRelative { .. } if !ignore_movement => {
+                        match wm.lock().raise_window_at_cursor_pos() {
+                            Ok(()) => {}
+                            Err(error) => tracing::error!("{}", error),
                         }
                     }
                     _ => {}

@@ -1924,13 +1924,11 @@ fn main() -> eyre::Result<()> {
                                 "Application specific configuration file path has not been set. Try running 'komorebic fetch-asc'\n"
                             );
                         }
-                        Some(AppSpecificConfigurationPath::Single(path)) => {
-                            if !path.exists() {
-                                println!(
-                                    "Application specific configuration file path '{}' does not exist. Try running 'komorebic fetch-asc'\n",
-                                    path.display()
-                                );
-                            }
+                        Some(AppSpecificConfigurationPath::Single(path)) if !path.exists() => {
+                            println!(
+                                "Application specific configuration file path '{}' does not exist. Try running 'komorebic fetch-asc'\n",
+                                path.display()
+                            );
                         }
                         _ => {}
                     }
