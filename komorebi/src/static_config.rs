@@ -475,7 +475,7 @@ pub enum AppSpecificConfigurationPath {
 #[serde_with::serde_as]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-/// The `komorebi.json` static configuration file reference for `v0.1.41`
+/// The `komorebi.json` static configuration file reference for `v0.1.42`
 pub struct StaticConfig {
     /// DEPRECATED from v0.1.22: no longer required
     #[deprecated(note = "No longer required")]
