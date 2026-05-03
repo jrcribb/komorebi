@@ -78,6 +78,11 @@ use windows_numerics::Matrix3x2;
 /// avoiding a data race between the border manager thread and the border's message loop thread.
 pub const WM_UPDATE_BRUSHES: u32 = WM_USER + 1;
 
+/// Custom WM_USER message used to drive the border in lockstep with an active
+/// movement animation. lparam carries a `Box<Rect>` ownership transfer that the
+/// receiving WndProc reclaims and applies as the new tracked rect.
+pub const WM_ANIMATE_RECT: u32 = WM_USER + 2;
+
 pub struct RenderFactory(ID2D1Factory);
 unsafe impl Sync for RenderFactory {}
 unsafe impl Send for RenderFactory {}
@@ -105,6 +110,98 @@ static BRUSH_PROPERTIES: LazyLock<D2D1_BRUSH_PROPERTIES> =
         opacity: 1.0,
         transform: Matrix3x2::identity(),
     });
+
+/// Apply a new tracked rect to the border on its own message-loop thread.
+/// Updates `window_rect`, calls `set_position`, and re-renders if size/position
+/// changed. Used by both `EVENT_OBJECT_LOCATIONCHANGE` (real window movements)
+/// and `WM_ANIMATE_RECT` (animation-driven movements while the source is cloaked).
+///
+/// SAFETY: caller must ensure `border_pointer` is non-null, points to a live
+/// `Border`, and that we are running on the border's WndProc thread.
+unsafe fn apply_tracked_rect(border_pointer: *mut Border, rect: Rect) {
+    unsafe {
+        let reference_hwnd = (*border_pointer).tracking_hwnd;
+        let old_rect = (*border_pointer).window_rect;
+        (*border_pointer).window_rect = rect;
+
+        if let Err(error) = (*border_pointer).set_position(&rect, reference_hwnd) {
+            tracing::error!("failed to update border position {error}");
+        }
+
+        if (rect.is_same_size_as(&old_rect) && rect.has_same_position_as(&old_rect))
+            || (*border_pointer).render_target.is_none()
+        {
+            return;
+        }
+
+        // double-check destruction flag before rendering
+        if (*border_pointer).is_destroying.load(Ordering::Acquire) {
+            return;
+        }
+
+        let render_target = match (*border_pointer).render_target.as_ref() {
+            Some(rt) => rt,
+            None => return,
+        };
+
+        let border_width = (*border_pointer).width;
+        let border_offset = (*border_pointer).offset;
+
+        (*border_pointer).rounded_rect.rect = D2D_RECT_F {
+            left: (border_width / 2 - border_offset) as f32,
+            top: (border_width / 2 - border_offset) as f32,
+            right: (rect.right - border_width / 2 + border_offset) as f32,
+            bottom: (rect.bottom - border_width / 2 + border_offset) as f32,
+        };
+
+        let _ = render_target.Resize(&D2D_SIZE_U {
+            width: rect.right as u32,
+            height: rect.bottom as u32,
+        });
+
+        let window_kind = (*border_pointer).window_kind;
+        let Some(brush) = (*border_pointer).brushes.get(&window_kind) else {
+            return;
+        };
+
+        render_target.BeginDraw();
+        render_target.Clear(None);
+
+        let style = match (*border_pointer).style {
+            BorderStyle::System => {
+                if *WINDOWS_11 {
+                    BorderStyle::Rounded
+                } else {
+                    BorderStyle::Square
+                }
+            }
+            BorderStyle::Rounded => BorderStyle::Rounded,
+            BorderStyle::Square => BorderStyle::Square,
+        };
+
+        match style {
+            BorderStyle::Rounded => {
+                render_target.DrawRoundedRectangle(
+                    &(*border_pointer).rounded_rect,
+                    brush,
+                    border_width as f32,
+                    None,
+                );
+            }
+            BorderStyle::Square => {
+                render_target.DrawRectangle(
+                    &(*border_pointer).rounded_rect.rect,
+                    brush,
+                    border_width as f32,
+                    None,
+                );
+            }
+            _ => {}
+        }
+
+        let _ = render_target.EndDraw(None, None);
+    }
+}
 
 pub extern "system" fn border_hwnds(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let hwnds = unsafe { &mut *(lparam.0 as *mut Vec<isize>) };
@@ -349,6 +446,29 @@ impl Border {
         };
     }
 
+    /// Drive the border to follow `rect` during a movement animation. Hands
+    /// ownership of a boxed `Rect` to the border's message-loop thread via
+    /// `WM_ANIMATE_RECT`, which mirrors the redraw path normally driven by
+    /// `EVENT_OBJECT_LOCATIONCHANGE` on the real source window.
+    pub fn animate_to(&self, rect: Rect) {
+        let boxed = Box::new(rect);
+        let ptr = Box::into_raw(boxed);
+        let posted = unsafe {
+            PostMessageW(
+                Option::from(self.hwnd()),
+                WM_ANIMATE_RECT,
+                WPARAM(0),
+                LPARAM(ptr as isize),
+            )
+        };
+        if posted.is_err() {
+            // Reclaim the box on failure to avoid leaking.
+            unsafe {
+                drop(Box::from_raw(ptr));
+            }
+        }
+    }
+
     pub fn set_position(&self, rect: &Rect, reference_hwnd: isize) -> color_eyre::Result<()> {
         let mut rect = *rect;
         rect.add_margin(self.width);
@@ -419,81 +539,24 @@ impl Border {
                     }
 
                     let reference_hwnd = (*border_pointer).tracking_hwnd;
-
-                    let old_rect = (*border_pointer).window_rect;
                     let rect = WindowsApi::window_rect(reference_hwnd).unwrap_or_default();
+                    apply_tracked_rect(border_pointer, rect);
+                    LRESULT(0)
+                }
+                WM_ANIMATE_RECT => {
+                    // lparam carries an owned Box<Rect> from the animation thread.
+                    let rect_box = Box::from_raw(lparam.0 as *mut Rect);
+                    let border_pointer: *mut Border = GetWindowLongPtrW(window, GWLP_USERDATA) as _;
 
-                    (*border_pointer).window_rect = rect;
-
-                    if let Err(error) = (*border_pointer).set_position(&rect, reference_hwnd) {
-                        tracing::error!("failed to update border position {error}");
+                    if border_pointer.is_null() {
+                        return LRESULT(0);
                     }
 
-                    if (!rect.is_same_size_as(&old_rect) || !rect.has_same_position_as(&old_rect))
-                        && let Some(render_target) = (*border_pointer).render_target.as_ref()
-                    {
-                        // double-check destruction flag before rendering
-                        if (*border_pointer).is_destroying.load(Ordering::Acquire) {
-                            return LRESULT(0);
-                        }
-
-                        let border_width = (*border_pointer).width;
-                        let border_offset = (*border_pointer).offset;
-
-                        (*border_pointer).rounded_rect.rect = D2D_RECT_F {
-                            left: (border_width / 2 - border_offset) as f32,
-                            top: (border_width / 2 - border_offset) as f32,
-                            right: (rect.right - border_width / 2 + border_offset) as f32,
-                            bottom: (rect.bottom - border_width / 2 + border_offset) as f32,
-                        };
-
-                        let _ = render_target.Resize(&D2D_SIZE_U {
-                            width: rect.right as u32,
-                            height: rect.bottom as u32,
-                        });
-
-                        let window_kind = (*border_pointer).window_kind;
-                        if let Some(brush) = (*border_pointer).brushes.get(&window_kind) {
-                            render_target.BeginDraw();
-                            render_target.Clear(None);
-
-                            // Calculate border radius based on style
-                            let style = match (*border_pointer).style {
-                                BorderStyle::System => {
-                                    if *WINDOWS_11 {
-                                        BorderStyle::Rounded
-                                    } else {
-                                        BorderStyle::Square
-                                    }
-                                }
-                                BorderStyle::Rounded => BorderStyle::Rounded,
-                                BorderStyle::Square => BorderStyle::Square,
-                            };
-
-                            match style {
-                                BorderStyle::Rounded => {
-                                    render_target.DrawRoundedRectangle(
-                                        &(*border_pointer).rounded_rect,
-                                        brush,
-                                        border_width as f32,
-                                        None,
-                                    );
-                                }
-                                BorderStyle::Square => {
-                                    render_target.DrawRectangle(
-                                        &(*border_pointer).rounded_rect.rect,
-                                        brush,
-                                        border_width as f32,
-                                        None,
-                                    );
-                                }
-                                _ => {}
-                            }
-
-                            let _ = render_target.EndDraw(None, None);
-                        }
+                    if (*border_pointer).is_destroying.load(Ordering::Acquire) {
+                        return LRESULT(0);
                     }
 
+                    apply_tracked_rect(border_pointer, *rect_box);
                     LRESULT(0)
                 }
                 WM_PAINT => {

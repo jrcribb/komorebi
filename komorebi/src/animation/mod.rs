@@ -13,6 +13,7 @@ use parking_lot::Mutex;
 pub use engine::AnimationEngine;
 pub mod animation_manager;
 pub mod engine;
+pub mod ghost;
 pub mod lerp;
 pub mod prefix;
 pub mod render_dispatcher;
@@ -59,6 +60,7 @@ pub const DEFAULT_ANIMATION_ENABLED: bool = false;
 pub const DEFAULT_ANIMATION_STYLE: AnimationStyle = AnimationStyle::Linear;
 pub const DEFAULT_ANIMATION_DURATION: u64 = 250;
 pub const DEFAULT_ANIMATION_FPS: u64 = 60;
+pub const DEFAULT_GHOST_MOVEMENT: bool = true;
 
 lazy_static! {
     pub static ref ANIMATION_MANAGER: Arc<Mutex<AnimationManager>> =
@@ -78,3 +80,4 @@ lazy_static! {
 }
 
 pub static ANIMATION_FPS: AtomicU64 = AtomicU64::new(DEFAULT_ANIMATION_FPS);
+pub static GHOST_MOVEMENT_ENABLED: AtomicBool = AtomicBool::new(DEFAULT_GHOST_MOVEMENT);

@@ -113,6 +113,20 @@ pub fn window_border(hwnd: isize) -> Option<BorderInfo> {
     })
 }
 
+/// Drive the border that tracks `source_hwnd` to follow `rect`. No-op when no
+/// border is registered for the source window. Used by movement animations to
+/// keep the border visually in sync while the source window is cloaked.
+pub fn animate_to(source_hwnd: isize, rect: crate::core::Rect) {
+    let border_id = match WINDOWS_BORDERS.lock().get(&source_hwnd).cloned() {
+        Some(id) => id,
+        None => return,
+    };
+    let state = BORDER_STATE.lock();
+    if let Some(border) = state.get(&border_id) {
+        border.animate_to(rect);
+    }
+}
+
 pub fn send_notification(hwnd: Option<isize>) {
     if event_tx().try_send(Notification::Update(hwnd)).is_err() {
         tracing::warn!("channel is full; dropping notification")

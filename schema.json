@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "StaticConfig",
-  "description": "The `komorebi.json` static configuration file reference for `v0.1.41`",
+  "description": "The `komorebi.json` static configuration file reference for `v0.1.42`",
   "type": "object",
   "properties": {
     "animation": {
@@ -777,6 +777,14 @@
           "format": "uint64",
           "default": 60,
           "minimum": 0
+        },
+        "ghost_movement": {
+          "description": "Render movement animations on a GPU-composited ghost surface (recommended).\nWhen false, falls back to the legacy per-frame MoveWindow path.",
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": true
         },
         "style": {
           "description": "Set the animation style",

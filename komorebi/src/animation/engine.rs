@@ -86,6 +86,7 @@ impl AnimationEngine {
                 {
                     // cancel animation
                     ANIMATION_MANAGER.lock().cancel(animation_key.as_str());
+                    render_dispatcher.cleanup_on_cancel();
                     return Ok(());
                 }
 

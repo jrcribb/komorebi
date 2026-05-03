@@ -24,6 +24,7 @@ use windows::Win32::Foundation::WPARAM;
 use windows::Win32::Graphics::Dwm::DWM_CLOAKED_APP;
 use windows::Win32::Graphics::Dwm::DWM_CLOAKED_INHERITED;
 use windows::Win32::Graphics::Dwm::DWM_CLOAKED_SHELL;
+use windows::Win32::Graphics::Dwm::DWM_THUMBNAIL_PROPERTIES;
 use windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR;
 use windows::Win32::Graphics::Dwm::DWMWA_CLOAKED;
 use windows::Win32::Graphics::Dwm::DWMWA_COLOR_NONE;
@@ -32,7 +33,10 @@ use windows::Win32::Graphics::Dwm::DWMWA_WINDOW_CORNER_PREFERENCE;
 use windows::Win32::Graphics::Dwm::DWMWCP_ROUND;
 use windows::Win32::Graphics::Dwm::DWMWINDOWATTRIBUTE;
 use windows::Win32::Graphics::Dwm::DwmGetWindowAttribute;
+use windows::Win32::Graphics::Dwm::DwmRegisterThumbnail;
 use windows::Win32::Graphics::Dwm::DwmSetWindowAttribute;
+use windows::Win32::Graphics::Dwm::DwmUnregisterThumbnail;
+use windows::Win32::Graphics::Dwm::DwmUpdateThumbnailProperties;
 use windows::Win32::Graphics::Gdi::CreateSolidBrush;
 use windows::Win32::Graphics::Gdi::EnumDisplayMonitors;
 use windows::Win32::Graphics::Gdi::GetMonitorInfoW;
@@ -144,6 +148,7 @@ use windows::Win32::UI::WindowsAndMessaging::WS_DISABLED;
 use windows::Win32::UI::WindowsAndMessaging::WS_EX_NOACTIVATE;
 use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOOLWINDOW;
 use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOPMOST;
+use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
 use windows::Win32::UI::WindowsAndMessaging::WS_POPUP;
 use windows::Win32::UI::WindowsAndMessaging::WS_SYSMENU;
 use windows::Win32::UI::WindowsAndMessaging::WindowFromPoint;
@@ -1341,6 +1346,41 @@ impl WindowsApi {
             )?;
             Ok(alpha)
         }
+    }
+
+    pub fn create_ghost_host_window(name: PCWSTR, instance: isize) -> eyre::Result<isize> {
+        unsafe {
+            CreateWindowExW(
+                WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
+                name,
+                name,
+                WS_POPUP,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                None,
+                None,
+                Option::from(HINSTANCE(as_ptr!(instance))),
+                None,
+            )?
+        }
+        .process()
+    }
+
+    pub fn dwm_register_thumbnail(dest_hwnd: isize, src_hwnd: isize) -> eyre::Result<isize> {
+        Ok(unsafe { DwmRegisterThumbnail(HWND(as_ptr!(dest_hwnd)), HWND(as_ptr!(src_hwnd))) }?)
+    }
+
+    pub fn dwm_update_thumbnail_properties(
+        hthumb: isize,
+        props: &DWM_THUMBNAIL_PROPERTIES,
+    ) -> eyre::Result<()> {
+        unsafe { DwmUpdateThumbnailProperties(hthumb, props) }.map_err(Into::into)
+    }
+
+    pub fn dwm_unregister_thumbnail(hthumb: isize) -> eyre::Result<()> {
+        unsafe { DwmUnregisterThumbnail(hthumb) }.map_err(Into::into)
     }
 
     pub fn create_hidden_window(name: PCWSTR, instance: isize) -> eyre::Result<isize> {

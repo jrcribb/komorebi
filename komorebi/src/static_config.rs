@@ -39,6 +39,8 @@ use crate::animation::ANIMATION_FPS;
 use crate::animation::ANIMATION_STYLE_GLOBAL;
 use crate::animation::ANIMATION_STYLE_PER_ANIMATION;
 use crate::animation::DEFAULT_ANIMATION_FPS;
+use crate::animation::DEFAULT_GHOST_MOVEMENT;
+use crate::animation::GHOST_MOVEMENT_ENABLED;
 use crate::animation::PerAnimationPrefixConfig;
 use crate::asc::ApplicationSpecificConfiguration;
 use crate::asc::AscApplicationRulesOrSchema;
@@ -695,6 +697,11 @@ pub struct AnimationsConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "schemars", schemars(extend("default" = ANIMATION_FPS)))]
     pub fps: Option<u64>,
+    /// Render movement animations on a GPU-composited ghost surface (recommended).
+    /// When false, falls back to the legacy per-frame MoveWindow path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schemars", schemars(extend("default" = true)))]
+    pub ghost_movement: Option<bool>,
 }
 
 pub use komorebi_themes::KomorebiTheme;
@@ -1022,6 +1029,17 @@ impl StaticConfig {
                 animations.fps.unwrap_or(DEFAULT_ANIMATION_FPS),
                 Ordering::SeqCst,
             );
+
+            let ghost_movement_enabled =
+                animations.ghost_movement.unwrap_or(DEFAULT_GHOST_MOVEMENT);
+            GHOST_MOVEMENT_ENABLED.store(ghost_movement_enabled, Ordering::SeqCst);
+            if ghost_movement_enabled {
+                // Spawn the ghost owner thread now so the first animation
+                // doesn't pay the spawn + wndclass-registration cost. Lazy
+                // guarantee preserved: users who turn ghost_movement off
+                // never trigger this path, so the thread is never created.
+                crate::animation::ghost::prewarm();
+            }
         }
 
         if let Some(container) = self.default_container_padding {
