@@ -60,7 +60,7 @@ pub const DEFAULT_ANIMATION_ENABLED: bool = false;
 pub const DEFAULT_ANIMATION_STYLE: AnimationStyle = AnimationStyle::Linear;
 pub const DEFAULT_ANIMATION_DURATION: u64 = 250;
 pub const DEFAULT_ANIMATION_FPS: u64 = 60;
-pub const DEFAULT_GHOST_MOVEMENT: bool = true;
+pub const DEFAULT_GHOST_MOVEMENT: bool = false;
 
 lazy_static! {
     pub static ref ANIMATION_MANAGER: Arc<Mutex<AnimationManager>> =

@@ -705,7 +705,7 @@ pub struct AnimationsConfig {
     /// Render movement animations on a GPU-composited ghost surface (recommended).
     /// When false, falls back to the legacy per-frame MoveWindow path.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "schemars", schemars(extend("default" = true)))]
+    #[cfg_attr(feature = "schemars", schemars(extend("default" = false)))]
     pub ghost_movement: Option<bool>,
 }
 
