@@ -33,6 +33,7 @@ use crate::core::CycleDirection;
 use crate::core::DefaultLayout;
 use crate::core::FocusFollowsMouseImplementation;
 use crate::core::Layout;
+use crate::core::MonocleFocusBehaviour;
 use crate::core::MoveBehaviour;
 use crate::core::OperationBehaviour;
 use crate::core::OperationDirection;
@@ -81,6 +82,7 @@ pub struct WindowManager {
     pub window_management_behaviour: WindowManagementBehaviour,
     pub cross_monitor_move_behaviour: MoveBehaviour,
     pub cross_boundary_behaviour: CrossBoundaryBehaviour,
+    pub monocle_focus_behaviour: MonocleFocusBehaviour,
     pub unmanaged_window_operation_behaviour: OperationBehaviour,
     pub focus_follows_mouse: Option<FocusFollowsMouseImplementation>,
     pub mouse_follows_focus: bool,
@@ -158,6 +160,7 @@ impl WindowManager {
             window_management_behaviour: WindowManagementBehaviour::default(),
             cross_monitor_move_behaviour: MoveBehaviour::Swap,
             cross_boundary_behaviour: CrossBoundaryBehaviour::Monitor,
+            monocle_focus_behaviour: MonocleFocusBehaviour::default(),
             unmanaged_window_operation_behaviour: OperationBehaviour::Op,
             resize_delta: 50,
             focus_follows_mouse: None,
@@ -2110,7 +2113,9 @@ impl WindowManager {
 
         tracing::info!("focusing container");
 
-        if workspace.monocle_container.is_some() {
+        if workspace.monocle_container.is_some()
+            && matches!(self.monocle_focus_behaviour, MonocleFocusBehaviour::Cycle)
+        {
             let cycle_direction = match direction {
                 OperationDirection::Left | OperationDirection::Down => CycleDirection::Previous,
                 OperationDirection::Right | OperationDirection::Up => CycleDirection::Next,
@@ -2118,11 +2123,12 @@ impl WindowManager {
             return self.cycle_monocle(cycle_direction);
         }
 
-        let new_idx = if workspace.maximized_window.is_some() {
-            None
-        } else {
-            workspace.new_idx_for_direction(direction)
-        };
+        let new_idx =
+            if workspace.maximized_window.is_some() || workspace.monocle_container.is_some() {
+                None
+            } else {
+                workspace.new_idx_for_direction(direction)
+            };
 
         let mut cross_monitor_monocle_or_max = false;
 

@@ -57,6 +57,7 @@ pub use komorebi::core::FloatingLayerBehaviour;
 pub use komorebi::core::FocusFollowsMouseImplementation;
 pub use komorebi::core::HidingBehaviour;
 pub use komorebi::core::Layout;
+pub use komorebi::core::MonocleFocusBehaviour;
 pub use komorebi::core::MoveBehaviour;
 pub use komorebi::core::OperationBehaviour;
 pub use komorebi::core::OperationDirection;

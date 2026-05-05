@@ -738,6 +738,13 @@ struct BorderStyle {
 }
 
 #[derive(Parser)]
+struct MonocleFocusBehaviour {
+    /// Desired monocle focus behaviour
+    #[clap(value_enum)]
+    behaviour: komorebi_client::MonocleFocusBehaviour,
+}
+
+#[derive(Parser)]
 struct BorderImplementation {
     /// Desired border implementation
     #[clap(value_enum)]
@@ -1418,6 +1425,11 @@ enum SubCommand {
     CrossMonitorMoveBehaviour(CrossMonitorMoveBehaviour),
     /// Toggle the behaviour when moving windows across monitor boundaries
     ToggleCrossMonitorMoveBehaviour,
+    /// Set the behaviour when focusing in a direction while a monocle container is active
+    #[clap(arg_required_else_help = true)]
+    MonocleFocusBehaviour(MonocleFocusBehaviour),
+    /// Toggle the behaviour when focusing in a direction while a monocle container is active
+    ToggleMonocleFocusBehaviour,
     /// Set the operation behaviour when the focused window is not managed
     #[clap(arg_required_else_help = true)]
     UnmanagedWindowOperationBehaviour(UnmanagedWindowOperationBehaviour),
@@ -3250,6 +3262,12 @@ if (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
         }
         SubCommand::ToggleCrossMonitorMoveBehaviour => {
             send_message(&SocketMessage::ToggleCrossMonitorMoveBehaviour)?;
+        }
+        SubCommand::MonocleFocusBehaviour(args) => {
+            send_message(&SocketMessage::MonocleFocusBehaviour(args.behaviour))?;
+        }
+        SubCommand::ToggleMonocleFocusBehaviour => {
+            send_message(&SocketMessage::ToggleMonocleFocusBehaviour)?;
         }
         SubCommand::UnmanagedWindowOperationBehaviour(args) => {
             send_message(&SocketMessage::UnmanagedWindowOperationBehaviour(

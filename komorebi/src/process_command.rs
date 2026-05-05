@@ -61,6 +61,7 @@ use crate::core::BorderImplementation;
 use crate::core::FocusFollowsMouseImplementation;
 use crate::core::Layout;
 use crate::core::LayoutOptions;
+use crate::core::MonocleFocusBehaviour;
 use crate::core::MoveBehaviour;
 use crate::core::OperationDirection;
 use crate::core::Rect;
@@ -2067,6 +2068,15 @@ if (!(Get-Process komorebi-bar -ErrorAction SilentlyContinue))
             }
             SocketMessage::CrossMonitorMoveBehaviour(behaviour) => {
                 self.cross_monitor_move_behaviour = behaviour;
+            }
+            SocketMessage::ToggleMonocleFocusBehaviour => {
+                self.monocle_focus_behaviour = match self.monocle_focus_behaviour {
+                    MonocleFocusBehaviour::Cycle => MonocleFocusBehaviour::NoOp,
+                    MonocleFocusBehaviour::NoOp => MonocleFocusBehaviour::Cycle,
+                };
+            }
+            SocketMessage::MonocleFocusBehaviour(behaviour) => {
+                self.monocle_focus_behaviour = behaviour;
             }
             SocketMessage::UnmanagedWindowOperationBehaviour(behaviour) => {
                 self.unmanaged_window_operation_behaviour = behaviour;
