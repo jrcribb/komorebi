@@ -3,7 +3,6 @@ use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::WrapErr;
 use komorebi_themes::colour::Rgb;
 use miow::pipe::connect;
-use net2::TcpStreamExt;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fs::File;
@@ -154,8 +153,7 @@ pub fn listen_for_commands_tcp(wm: Arc<Mutex<WindowManager>>, port: usize) {
         for client in listener.incoming() {
             match client {
                 Ok(mut stream) => {
-                    stream
-                        .set_keepalive(Some(Duration::from_secs(30)))
+                    net2::TcpStreamExt::set_keepalive(&stream, Some(Duration::from_secs(30)))
                         .expect("TCP keepalive should be set");
 
                     let addr = stream

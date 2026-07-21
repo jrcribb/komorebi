@@ -101,7 +101,7 @@ pub fn handle_notifications(wm: Arc<Mutex<WindowManager>>) -> color_eyre::Result
         if matches!(STACKBAR_MODE.load(), StackbarMode::Never)
             || STACKBAR_TEMPORARILY_DISABLED.load(Ordering::SeqCst)
         {
-            for (_, stackbar) in stackbars.iter() {
+            for stackbar in stackbars.values() {
                 stackbar.destroy()?;
             }
 
