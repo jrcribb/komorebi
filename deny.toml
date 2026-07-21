@@ -16,6 +16,7 @@ ignore = [
   { id = "RUSTSEC-2024-0436", reason = "paste being unmaintained is not an issue in our use" },
   { id = "RUSTSEC-2024-0320", reason = "not using any yaml features from this library" },
   { id = "RUSTSEC-2025-0056", reason = "only used for colour palette generation" },
+  { id = "RUSTSEC-2026-0192", reason = "will address this when upgrading egui" },
 ]
 
 [licenses]
